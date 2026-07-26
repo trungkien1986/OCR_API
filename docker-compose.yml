@@ -1,0 +1,175 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Không cần AOF/RDB bền vững — hàng đợi job, mất là chạy lại được, không phải nguồn dữ liệu gốc
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    networks:
+      - ocr-internal
+    # KHÔNG map port ra host — Redis chỉ được truy cập qua network nội bộ (Mục 10.3 thiết kế)
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    # Khác hẳn storage-tmp (tmpfs) — đây là volume THẬT trên đĩa, vì job metadata/tenant
+    # secret (mã hoá) phải sống sót qua restart, ngược lại hoàn toàn với tài liệu scan gốc.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - ocr-internal
+    # KHÔNG map port ra host — cùng nguyên tắc với Redis (Mục 10.3)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # Trong production đặt sau reverse proxy (nginx/Caddy) terminate TLS 1.3 — container này chỉ nói HTTP nội bộ (Mục 10.3)
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_DIR=/data/storage
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_ENCRYPTION_KEY=${SECRET_ENCRYPTION_KEY}
+      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB}
+    volumes:
+      - storage-tmp:/data/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - ocr-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4g
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Chỉ nghe queue "ocr-jobs" (CPU-bound) — webhook-delivery (I/O-bound) tách riêng
+    # sang service worker-webhook bên dưới, để 1 webhook chậm/chết không giữ worker OCR
+    # đang rảnh (Mục 9.2 điểm 4).
+    command: ["rq", "worker", "--url", "redis://redis:6379/0", "ocr-jobs"]
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_DIR=/data/storage
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_ENCRYPTION_KEY=${SECRET_ENCRYPTION_KEY}
+    volumes:
+      - storage-tmp:/data/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - ocr-internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        # i5-14500 = CPU hybrid P-core/E-core, 14 core/20 luồng. "cpus" là NGÂN SÁCH thời gian CPU
+        # (cgroup quota) — để Linux CFS tự chọn core phù hợp, KHÔNG ghim core theo index cứng
+        # (taskset/affinity mask) vì P-core/E-core không đồng đều, dễ gây lỗi/chậm bất thường.
+        # Chừa lại phần còn lại cho api + redis + postgres + OS, không chiếm hết máy.
+        limits:
+          cpus: "10"
+          memory: 20g
+
+  worker-webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # I/O-bound (gọi callback_url, retry) — tách khỏi worker OCR để không bị 1 webhook
+    # endpoint chậm/chết giữ mất tài nguyên CPU-bound (Mục 9.2 điểm 4).
+    command: ["rq", "worker", "--url", "redis://redis:6379/0", "webhook-delivery"]
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_DIR=/data/storage
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_ENCRYPTION_KEY=${SECRET_ENCRYPTION_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - ocr-internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        # I/O-bound, không cần nhiều CPU/RAM như worker OCR
+        limits:
+          cpus: "1"
+          memory: 512m
+
+networks:
+  ocr-internal:
+    driver: bridge
+
+volumes:
+  # Volume dùng chung giữa api/worker để lưu file tạm, nhưng backend là tmpfs (RAM)
+  # -> file KHÔNG BAO GIỜ chạm đĩa, mạnh hơn cả "mã hoá at-rest" ở Mục 10.3
+  # vì không có gì để phục hồi bằng disk forensics. Giới hạn kích thước tránh tràn RAM.
+  storage-tmp:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=4g,mode=1777"
+  # NGƯỢC LẠI với storage-tmp: volume thật trên đĩa — job metadata/tenant secret (đã mã hoá)
+  # phải sống sót qua restart container.
+  pgdata:

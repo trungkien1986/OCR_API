@@ -1,0 +1,25 @@
+# Khung API + hàng đợi
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+python-multipart==0.0.*
+rq==2.*
+redis==5.*
+pydantic==2.*
+pydantic-settings==2.*
+
+# DB + migration (Postgres)
+sqlalchemy==2.*
+alembic==1.*
+psycopg[binary]==3.*
+
+# Gửi webhook SSRF-safe (pin IP, giữ SNI/Host đúng domain)
+urllib3==2.*
+certifi>=2024.0
+
+# Mã hoá tenant_secret lúc lưu trữ (Fernet)
+cryptography==43.*
+
+# OCR/nhận diện bảng: CHƯA pin version — cần benchmark PaddleOCR PP-OCRv5 vs VietOCR
+# trên mẫu thật trước khi chốt (xem OCR_ENGINE_DESIGN.md Mục 6, Mục 13)
+# paddleocr==...
+# paddlepaddle==...

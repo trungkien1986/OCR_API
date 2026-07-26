@@ -1,0 +1,12 @@
+- [Language preference](language_preference.md) — mọi tài liệu dự án (kể cả plan file EnterPlanMode) phải viết tiếng Việt
+- [Monitoring & alerting](monitoring_alerting.md) — PLG stack tự host, alerting KHÔNG hardcode Telegram (máy chưa chắc có internet, Telegram từng bị chặn ở VN), uptime check bắt buộc, backup Postgres ra ngoài máy, pilot không hứa SLA
+- [CI/CD pipeline](cicd_pipeline.md) — GitHub private + Actions, self-hosted runner trên máy production, cổng duyệt thủ công trước deploy, không cần blue-green
+- [Doc structure](doc_structure.md) — OCR_ENGINE_DESIGN.md là index rút gọn, chi tiết nằm trong design/*.md theo chủ đề — sửa đúng module, không sửa vào file gốc
+- [gRPC/Protobuf readiness](grpc_protobuf_readiness.md) — ocr-engine phải thiết kế để dễ nâng cấp sang gRPC/Protobuf, dù pilot dùng JSON/REST
+- [Deployment: OS & Docker](deployment_os_docker.md) — ocr-engine chạy trên Ubuntu Server + Docker Compose, không dùng Windows Service
+- [CPU affinity & hybrid core](cpu_affinity_hybrid_core.md) — không tự pin core theo index (i5-14500 là hybrid P/E-core), dùng cgroup quota thay vì taskset/affinity mask
+- [Field extraction strategy](field_extraction_strategy.md) — CCCD dùng MRZ/QR, sổ đỏ theo version mẫu, hợp đồng công chứng/tờ trình tín dụng dùng pattern-anchored + template theo tenant
+- [Validation rule engine](validation_rule_engine.md) — validation_flags/review_required là rule engine cấu hình YAML/JSON, không hardcode if/else
+- [Webapp integration boundary](webapp_integration_boundary.md) — webapp là khách hàng #1 không cửa sau, tenant theo từng khách hàng cuối, webhook at-least-once
+- [Pricing value framework](pricing_value_framework.md) — bán lớp validate nghiệp vụ chứ không phải OCR thô, tính theo hồ sơ; số giá cụ thể còn bỏ ngỏ, không tự bịa số
+- [Competition & GTM](competition_gtm.md) — không lấy CCCD làm mũi nhọn (eKYC bão hoà), rủi ro công chứng bị khoá bởi hệ thống tập trung cần xác minh sớm, moat là domain knowledge/data/quan hệ

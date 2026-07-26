@@ -1,0 +1,87 @@
+name: ci
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  packages: write # cần cho bước push GHCR ở job build-scan-push
+
+jobs:
+  lint-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy .
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ocr
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: ocr_engine_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ocr" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://ocr:test@localhost:5432/ocr_engine_test
+      REDIS_URL: redis://localhost:6379/0
+      STORAGE_DIR: /tmp/ocr-engine-ci-storage
+      # Khoá test cố định (không phải secret thật, chỉ để CI có khoá Fernet hợp lệ) — sinh bằng
+      # `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+      SECRET_ENCRYPTION_KEY: LRLDEXg-8r7pnKZIq1sQih2L5uH-VbBVGYgpTVTxdHw=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-dev.txt
+      - run: alembic upgrade head
+      - run: pytest -q
+      # TODO (Tuần 9-10): regression gate golden dataset (design/testing.md Mục 14.3) là
+      # 1 job/workflow RIÊNG chạy khi merge main hoặc theo lịch (nightly), không chặn mỗi
+      # push/PR ở đây — cần pipeline OCR thật (chưa có ở Phase 1).
+
+  build-scan-push:
+    needs: [lint-typecheck, test]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          artifact-name: sbom.spdx.json
+
+  # TODO: CD là workflow RIÊNG (cd.yml), gate qua self-hosted runner đăng ký trên máy
+  # production + GitHub Environments cổng duyệt thủ công (design/architecture.md Mục 5.2).
+  # CHƯA viết ở Phase 1 — chưa có máy production/runner nào để đăng ký; đây là bước thủ
+  # công cần làm riêng với người dùng, không giả vờ có ở đây.

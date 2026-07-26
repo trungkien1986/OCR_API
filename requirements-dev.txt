@@ -1,0 +1,10 @@
+-r requirements.txt
+
+# Test
+pytest==8.*
+httpx==0.27.*
+fakeredis==2.*
+
+# Lint & type check
+ruff==0.*
+mypy==1.*
