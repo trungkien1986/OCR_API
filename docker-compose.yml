@@ -16,6 +16,12 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # Entrypoint gốc của image redis chạy bằng root rồi tự hạ quyền xuống user
+    # "redis" bằng setpriv (setresuid/setresgid) trước khi start redis-server —
+    # cap_drop ALL xoá luôn quyền cần cho chính bước hạ quyền này nên phải trả lại tối thiểu.
+    cap_add:
+      - SETUID
+      - SETGID
 
   postgres:
     image: postgres:16-alpine
@@ -42,6 +48,15 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # Entrypoint gốc của image postgres chạy bằng root để chown/chmod thư mục data
+    # rồi tự hạ quyền xuống user "postgres" — cap_drop ALL xoá luôn quyền cần cho
+    # chính các bước init này nên phải trả lại tối thiểu (không phải lỗi máy dev).
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
 
   api:
     build:

@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 venv/
 .env
+docker-compose.override.yml
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
