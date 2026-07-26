@@ -62,14 +62,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # github.repository giữ nguyên hoa/thường của tên repo (ở đây có "OCR_API"), nhưng
+      # tên repository trên registry Docker BẮT BUỘC toàn chữ thường — build sẽ lỗi ngay
+      # bước tag nếu dùng thẳng github.repository.
+      - name: Tính tên image viết thường
+        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
@@ -78,7 +83,7 @@ jobs:
           sarif_file: trivy-results.sarif
       - uses: anchore/sbom-action@v0
         with:
-          image: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          image: ${{ env.IMAGE }}:${{ github.sha }}
           artifact-name: sbom.spdx.json
 
   # TODO: CD là workflow RIÊNG (cd.yml), gate qua self-hosted runner đăng ký trên máy
