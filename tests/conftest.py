@@ -60,6 +60,19 @@ def _clean_storage_dir():
     shutil.rmtree(settings.storage_dir, ignore_errors=True)
 
 
+class _RaisingQueue(Queue):
+    """RQ với is_async=False chạy job ngay trong enqueue(), nhưng NUỐT MẤT exception
+    (lưu vào job.exc_info, không raise lại cho caller) — nếu không bắt lại ở đây, job lỗi
+    sẽ lặng lẽ đứng ở status DB cũ (vd "queued") mà không có traceback nào lộ ra, cực khó
+    debug. Raise lại ngay để lỗi thật trong pipeline/worker luôn làm test fail rõ ràng."""
+
+    def enqueue_call(self, *args, **kwargs):
+        job = super().enqueue_call(*args, **kwargs)
+        if job.is_failed:
+            raise RuntimeError(f"RQ job {job.id} ({job.func_name}) thất bại:\n{job.exc_info}")
+        return job
+
+
 @pytest.fixture(autouse=True)
 def sync_queues(monkeypatch):
     """Chạy RQ đồng bộ trong process (is_async=False, fakeredis) — không cần Redis/worker
@@ -68,7 +81,7 @@ def sync_queues(monkeypatch):
     fake_conn = fakeredis.FakeStrictRedis()
 
     def _get_queue(name: str) -> Queue:
-        return Queue(name, connection=fake_conn, is_async=False)
+        return _RaisingQueue(name, connection=fake_conn, is_async=False)
 
     # Patch tại đúng nơi mỗi module đã "from workers.queue import get_queue" —
     # patch riêng workers.queue.get_queue không đủ vì tên đã được import vào namespace khác.
