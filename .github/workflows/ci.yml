@@ -5,6 +5,7 @@ on: [push, pull_request]
 permissions:
   contents: read
   packages: write # cần cho bước push GHCR ở job build-scan-push
+  security-events: write # cần để upload-sarif ghi kết quả Trivy vào tab Security
 
 jobs:
   lint-typecheck:
