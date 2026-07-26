@@ -44,7 +44,9 @@ class Tenant(Base):
 
     # Domain callback đã đăng ký trước — chống SSRF bằng allowlist, không nhận URL tự do
     # mỗi job (design/security.md Mục 10.2.1).
-    allowed_callback_domains: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
+    allowed_callback_domains: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default="{}"
+    )
 
     # Có cột sẵn, CHƯA enforce ở Phase 1 (cần quyết định nơi lưu trạng thái token-bucket
     # dùng chung, chỉ có ý nghĩa khi >1 API replica hoặc tenant thực sự cần giới hạn).
@@ -60,7 +62,9 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False
+    )
 
     doc_type: Mapped[str] = mapped_column(String(40), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="queued")

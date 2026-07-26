@@ -122,7 +122,7 @@ def resolve_safe_callback(url: str, allowed_domains: set[str]) -> SafeCallbackTa
     # Kiểm TẤT CẢ địa chỉ trả về (không chỉ địa chỉ đầu tiên) trước khi chấp nhận —
     # hardening nhỏ so với snippet tham chiếu trong design/security.md Mục 10.2.1.
     for info in infos:
-        ip = info[4][0]
+        ip = str(info[4][0])
         if any(ipaddress.ip_address(ip) in net for net in BLOCKED_NETS):
             raise ValueError("callback_url trỏ vào dải mạng nội bộ — từ chối")
-    return SafeCallbackTarget(hostname=hostname, ip=infos[0][4][0])
+    return SafeCallbackTarget(hostname=hostname, ip=str(infos[0][4][0]))

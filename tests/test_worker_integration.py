@@ -8,9 +8,7 @@ from db.models import Job
 from workers.tasks import process_document
 
 
-def test_process_document_survives_real_rq_roundtrip(
-    make_tenant, mock_public_dns, mock_webhook_delivery
-):
+def test_process_document_survives_real_rq_roundtrip(make_tenant, mock_public_dns, mock_webhook_delivery):
     """Khác với các test khác (dùng is_async=False qua fixture `sync_queues` trong
     conftest.py — chạy hàm trực tiếp, không qua serialize), test này dùng Queue/Worker
     THẬT trên fakeredis để bắt các lỗi enqueue/serialize thật (vd tham số không pickle

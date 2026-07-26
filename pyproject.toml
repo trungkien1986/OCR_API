@@ -1,10 +1,17 @@
 [tool.ruff]
 line-length = 110
 target-version = "py311"
-extend-exclude = ["db/migrations/versions"]
+# design/plans/memory là tài liệu Markdown chứa đoạn code minh hoạ, không phải source
+# thật — ruff format hỗ trợ reformat code block trong .md nên phải loại trừ tường minh,
+# nếu không sẽ đè format lên nội dung tài liệu.
+extend-exclude = ["db/migrations/versions", "design", "plans", "memory"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's DI pattern (Depends()/File()/Form() as argument defaults) là idiom
+# chuẩn của framework, không phải lỗi mutable-default thật — ignore rule này là thực
+# hành phổ biến cho codebase FastAPI.
+ignore = ["B008"]
 
 [tool.mypy]
 python_version = "3.11"

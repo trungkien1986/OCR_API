@@ -3,7 +3,7 @@
 Mục 9.4.2-9.4.3, design/architecture.md Mục 4.1)."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 import certifi
@@ -98,7 +98,7 @@ def deliver_webhook(job_id: str) -> None:
 
         _send(target.ip, target.hostname, path, body, headers)
 
-        job.webhook_delivered_at = datetime.now(timezone.utc)
+        job.webhook_delivered_at = datetime.now(UTC)
         db.commit()
     finally:
         db.close()

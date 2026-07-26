@@ -13,7 +13,9 @@ def _submit_job(client: TestClient, api_key: str, sample_pdf_path) -> str:
     return resp.json()["job_id"]
 
 
-def test_tenant_can_read_own_job(client, make_tenant, sample_pdf_path, mock_public_dns, mock_webhook_delivery):
+def test_tenant_can_read_own_job(
+    client, make_tenant, sample_pdf_path, mock_public_dns, mock_webhook_delivery
+):
     _tenant_a, api_key_a, _secret = make_tenant()
     job_id = _submit_job(client, api_key_a, sample_pdf_path)
 

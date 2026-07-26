@@ -4,8 +4,8 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from api.config import settings
-from db.base import Base
 from db import models  # noqa: F401  # đảm bảo model đăng ký vào Base.metadata trước autogenerate
+from db.base import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

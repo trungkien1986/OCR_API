@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 SCHEMA_VERSION = "1.0.0"
 
 
-class DocType(str, enum.Enum):
+class DocType(enum.StrEnum):
     """Chưa có extractor thật cho loại nào ở Phase 1 (Tuần 4-9 mới xây) — enum này
     chỉ xác định giá trị `doc_type` hợp lệ mà API chấp nhận ngay từ bây giờ."""
 
@@ -19,7 +19,7 @@ class DocType(str, enum.Enum):
     to_trinh_tin_dung = "to_trinh_tin_dung"
 
 
-class JobStatus(str, enum.Enum):
+class JobStatus(enum.StrEnum):
     queued = "queued"
     processing = "processing"
     completed = "completed"
