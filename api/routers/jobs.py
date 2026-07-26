@@ -66,13 +66,19 @@ def create_job(
 
     job.file_path = save_upload(job.id, file, settings.storage_dir)
     db.commit()
+    job_id_str = str(job.id)
+    created_at_iso = job.created_at.isoformat()
+    # Trả connection về pool NGAY trước khi enqueue — enqueue có thể chạy job đồng bộ
+    # (is_async=False, chỉ trong test) và mở 1 session Postgres MỚI cùng luồng; giữ
+    # session này mở song song từng gây treo lúc mở connection thứ 2 (xem db/base.py).
+    db.close()
 
-    get_queue("ocr-jobs").enqueue(process_document, str(job.id))
+    get_queue("ocr-jobs").enqueue(process_document, job_id_str)
 
     return JobCreateResponse(
-        job_id=str(job.id),
+        job_id=job_id_str,
         status=JobStatus.queued,
-        created_at=job.created_at.isoformat(),
+        created_at=created_at_iso,
     )
 
 

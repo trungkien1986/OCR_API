@@ -45,10 +45,15 @@ def process_document(job_id: str) -> None:
             job.file_path = None
             db.commit()
 
-        get_queue("webhook-delivery").enqueue(
-            deliver_webhook,
-            str(job.id),
-            retry=Retry(max=3, interval=[30, 120, 600]),
-        )
+        job_id_str = str(job.id)
     finally:
         db.close()
+
+    # Trả connection về pool TRƯỚC khi enqueue webhook — enqueue có thể chạy job đồng bộ
+    # (is_async=False, chỉ trong test) và mở 1 session Postgres MỚI cùng luồng ngay lúc
+    # session này còn giữ connection, từng gây treo lúc mở connection thứ 2 (db/base.py).
+    get_queue("webhook-delivery").enqueue(
+        deliver_webhook,
+        job_id_str,
+        retry=Retry(max=3, interval=[30, 120, 600]),
+    )
