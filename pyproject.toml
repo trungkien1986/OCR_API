@@ -21,3 +21,7 @@ exclude = ["db/migrations/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Bắt buộc phải khai báo tường minh — lệnh CI gọi thẳng `pytest -q` (không phải
+# `python -m pytest`), nên KHÔNG tự thêm thư mục gốc project vào sys.path, làm
+# `from api.config import settings` trong conftest.py lỗi ModuleNotFoundError.
+pythonpath = ["."]
