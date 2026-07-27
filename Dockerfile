@@ -16,6 +16,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Bake model PaddleOCR/PP-StructureV3 vào image ngay lúc build — máy production chưa
+# chắc có internet ổn định (design/api.md Mục 9.5), KHÔNG được để tải lazy lúc chạy job
+# đầu tiên. Đặt trước COPY . . để tận dụng cache layer (không tải lại khi chỉ sửa code).
+RUN python -c "\
+from paddleocr import PaddleOCR, PPStructureV3; \
+PaddleOCR(lang='vi', use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False); \
+PPStructureV3()"
+
 COPY . .
 
 RUN useradd --create-home --uid 1000 appuser \

@@ -60,6 +60,27 @@ def _clean_storage_dir():
     shutil.rmtree(settings.storage_dir, ignore_errors=True)
 
 
+@pytest.fixture(autouse=True)
+def mock_pipeline(monkeypatch):
+    """Bộ test nhanh mặc định KHÔNG chạy PaddleOCR/PP-StructureV3 thật — model OCR chậm
+    (tải model, suy luận CPU) và không cần thiết để test API/queue/webhook wiring. Test
+    thật với OCR thật gọi thẳng extractors.bctc.extract_bctc() (không qua fixture này) —
+    xem tests/test_bctc_extraction_slow.py, đánh dấu `slow`, không chạy trong CI mặc định.
+    Test cần giả lập pipeline lỗi (vd test_storage_cleanup.py) tự ghi đè lại bằng
+    monkeypatch riêng trong thân test, chạy SAU fixture này nên vẫn có hiệu lực."""
+
+    def _stub(job_id, doc_type, file_path):
+        return {
+            "pages_processed": 1,
+            "confidence_overall": 0.99,
+            "extracted_data": {},
+            "validation_flags": [],
+            "review_required": False,
+        }
+
+    monkeypatch.setattr("workers.tasks.run_pipeline", _stub)
+
+
 class _RaisingQueue(Queue):
     """RQ với is_async=False chạy job ngay trong enqueue(), nhưng NUỐT MẤT exception
     (lưu vào job.exc_info, không raise lại cho caller) — nếu không bắt lại ở đây, job lỗi

@@ -1,0 +1,55 @@
+# Rule engine cấu hình cho doc_type=bctc (Bảng cân đối kế toán, Thông tư 200 — Mẫu B01-DN).
+# Thêm/sửa rule chỉ cần sửa file này, KHÔNG sửa code (design/pipeline.md Mục 8.6).
+# rules_version dùng để lưu vào Job.validation_flags / audit trail sau này (Mục 8.6 điểm 6).
+rules_version: "1.0.0-tt200-cdkt"
+
+rules:
+  - rule_id: bctc_100_tong_tai_san_ngan_han
+    doc_type: bctc
+    fields_involved: ["110", "120", "130", "140", "150", "100"]
+    expression: "sum(110,120,130,140,150) == 100"
+    severity: error
+    message_template: "Mã số 100 ({actual:,.0f}) không khớp tổng 110+120+130+140+150 ({expected:,.0f})"
+
+  - rule_id: bctc_200_tong_tai_san_dai_han
+    doc_type: bctc
+    fields_involved: ["210", "220", "230", "240", "250", "260", "200"]
+    expression: "sum(210,220,230,240,250,260) == 200"
+    severity: error
+    message_template: "Mã số 200 ({actual:,.0f}) không khớp tổng 210..260 ({expected:,.0f})"
+
+  - rule_id: bctc_270_tong_cong_tai_san
+    doc_type: bctc
+    fields_involved: ["100", "200", "270"]
+    expression: "sum(100,200) == 270"
+    severity: error
+    message_template: "Mã số 270 ({actual:,.0f}) không khớp tổng 100+200 ({expected:,.0f})"
+
+  - rule_id: bctc_300_no_phai_tra
+    doc_type: bctc
+    fields_involved: ["310", "330", "300"]
+    expression: "sum(310,330) == 300"
+    severity: error
+    message_template: "Mã số 300 ({actual:,.0f}) không khớp tổng 310+330 ({expected:,.0f})"
+
+  - rule_id: bctc_400_von_chu_so_huu
+    doc_type: bctc
+    fields_involved: ["410", "430", "400"]
+    expression: "sum(410,430) == 400"
+    severity: error
+    message_template: "Mã số 400 ({actual:,.0f}) không khớp tổng 410+430 ({expected:,.0f})"
+
+  - rule_id: bctc_440_tong_cong_nguon_von
+    doc_type: bctc
+    fields_involved: ["300", "400", "440"]
+    expression: "sum(300,400) == 440"
+    severity: error
+    message_template: "Mã số 440 ({actual:,.0f}) không khớp tổng 300+400 ({expected:,.0f})"
+
+  # Nguyên tắc cân đối kế toán cơ bản nhất: Tổng tài sản = Tổng nguồn vốn.
+  - rule_id: bctc_can_doi_tai_san_nguon_von
+    doc_type: bctc
+    fields_involved: ["270", "440"]
+    expression: "270 == 440"
+    severity: error
+    message_template: "Tổng cộng tài sản ({actual:,.0f}) không khớp Tổng cộng nguồn vốn ({expected:,.0f}) — lệch {delta:,.0f}"

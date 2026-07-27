@@ -7,7 +7,7 @@ from api.schemas import JobStatus
 from db.base import SessionLocal
 from db.models import Job
 from storage.files import delete_job_files
-from workers.pipeline import run_placeholder_pipeline
+from workers.pipeline import run_pipeline
 from workers.queue import get_queue
 from workers.webhook import deliver_webhook
 
@@ -26,7 +26,7 @@ def process_document(job_id: str) -> None:
         db.commit()
 
         try:
-            result = run_placeholder_pipeline(job.id, job.doc_type, job.file_path or "")
+            result = run_pipeline(job.id, job.doc_type, job.file_path or "")
             job.status = JobStatus.completed.value
             job.pages_processed = result["pages_processed"]
             job.confidence_overall = result["confidence_overall"]

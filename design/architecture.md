@@ -51,6 +51,7 @@ def verify_webhook_signature(body: bytes, signature_header: str, tenant_secret: 
 
 - **Hệ điều hành**: Ubuntu Server (không cần GUI), không dùng Windows — máy này dành riêng cho `ocr-engine`, không dùng chung việc khác. Lý do: PaddleOCR/OpenVINO và Redis đều native, ổn định hơn trên Linux; `systemd` quản lý service (auto-restart, log qua journald, giới hạn tài nguyên qua cgroups) trưởng thành hơn Windows Service; tránh overhead ảo hoá của Docker Desktop trên Windows (WSL2/Hyper-V) — đáng kể với workload CPU-only đã tính sát nhu cầu thực tế.
 - **Đóng gói**: containerize toàn bộ bằng Docker — 1 `docker-compose.yml` cho API + worker + Redis, quản lý bằng restart policy (`restart: unless-stopped`); không chạy native process rời rạc rồi tự bọc bằng NSSM/Windows Service.
+- **Model OCR (PaddleOCR/PP-StructureV3) được bake sẵn vào Docker image lúc build** (`RUN python -c "..."` gọi trước để tải/khởi tạo model, đặt trước `COPY . .` để tận dụng cache layer), KHÔNG tải lazy lúc chạy job đầu tiên — khớp thực tế Mục 9.5 (xem [api.md](api.md)): máy production chưa chắc có internet ổn định, không thể phó mặc việc tải model vào đúng lúc có job thật tới.
 - **Khả năng chạy trên Windows khi cần (demo/máy dự phòng)**: gần như miễn phí nhờ đã containerize — cùng `docker-compose.yml` chạy được trên Docker Desktop (Windows) mà không cần sửa code, miễn giữ kỷ luật cross-platform ngay từ đầu: dùng `pathlib` thay vì hardcode dấu `/`, không gọi lệnh shell đặc thù OS, không hardcode đường dẫn kiểu `/tmp/...`.
 - Không đi hướng "triển khai native song song 2 hệ điều hành" (systemd unit riêng cho Linux + NSSM/Windows Service riêng cho Windows) — tốn công bảo trì gấp đôi mỗi lần đổi cấu hình.
 
@@ -79,8 +80,8 @@ def verify_webhook_signature(body: bytes, signature_header: str, tenant_secret: 
 
 - **API**: FastAPI (Python) — tái dùng kinh nghiệm sẵn có
 - **Queue xử lý nền**: RQ (Redis Queue) — nhẹ hơn Celery, đủ dùng cho 1 máy đơn ở quy mô pilot
-- **OCR**: PaddleOCR PP-OCRv5 (Apache 2.0, hỗ trợ tiếng Việt native, 106 ngôn ngữ) — cần tự benchmark so với VietOCR chuyên biệt trên mẫu thật trước khi chốt
-- **Nhận diện bảng**: PP-Structure (PaddleOCR family) — bắt buộc cho BCTC vì đây là bảng dày đặc, không phải văn bản thường
+- **OCR**: PaddleOCR (Apache 2.0), dùng `lang="vi"` — **sửa lại nhận định sai ở đây trước đó**: PP-OCRv5 (dòng model mới nhất của PaddleOCR) thực ra chỉ hỗ trợ 5 ngôn ngữ (Trung giản/phồn thể, pinyin, Anh, Nhật), KHÔNG có tiếng Việt native. Hỗ trợ tiếng Việt nằm ở dòng model đa ngôn ngữ khác của cùng thư viện PaddleOCR (tham số `lang="vi"`, ~100+ ngôn ngữ) — vẫn là cùng 1 thư viện/license, chỉ khác lựa chọn model bên trong. Vẫn cần tự benchmark so với VietOCR chuyên biệt trên mẫu thật trước khi chốt (Tuần 9-10).
+- **Nhận diện bảng**: PP-StructureV3 (tên hiện tại của dòng "PP-Structure" trong PaddleOCR 3.x) — bắt buộc cho BCTC vì đây là bảng dày đặc, không phải văn bản thường
 - **Field extraction hồ sơ tín dụng/công chứng**: không dùng 1 chiến lược duy nhất cho mọi loại giấy tờ — mẫu nhà nước đã chuẩn hoá (CCCD, sổ đỏ) dùng rule-based theo vị trí + tận dụng MRZ/QR có sẵn; giấy tờ tự do/theo mẫu riêng từng tổ chức (hợp đồng công chứng, tờ trình tín dụng) dùng pattern-anchored (regex quanh từ khoá) + template cấu hình theo tenant, mở rộng từ pattern đã quen (parser SWIFT/giấy báo). Chi tiết ở Mục 8.3-8.5, xem [pipeline.md](pipeline.md).
 
 ## 7. Cấu trúc thư mục
@@ -90,15 +91,18 @@ ocr-engine/
 ├── api/                # FastAPI app, endpoint nhận job
 ├── workers/            # RQ worker: OCR + extract + validate
 ├── extractors/            # 1 file/loại tài liệu — chia theo mẫu giấy tờ cụ thể, không theo "nhóm nghiệp vụ"
-│   ├── bctc.py              # + danh mục mã số Thông tư 200/133 (tra cứu tĩnh)
-│   ├── cccd.py               # ưu tiên MRZ/QR trước OCR text tự do (Mục 8.3)
-│   ├── so_do.py               # theo version mẫu GCN QSDĐ (Mục 8.4)
-│   ├── hop_dong_cong_chung.py  # pattern-anchored quanh trường bắt buộc theo Luật Công chứng (Mục 8.5)
-│   └── to_trinh_tin_dung.py    # đọc template cấu hình theo tenant, không hardcode 1 mẫu (Mục 8.5)
-├── templates/            # định nghĩa field-position/keyword theo tenant (to_trinh_tin_dung, mẫu sổ đỏ theo thời kỳ)
-├── ocr/                  # wrapper PaddleOCR/PP-Structure
+│   ├── bctc.py              # ĐÃ CÓ (v1): ghép preprocess + OCR + PP-StructureV3 + map mã số + rule engine
+│   ├── ma_so_200.py          # ĐÃ CÓ: danh mục mã số Thông tư 200 (Mẫu B01-DN) — xem Mục 13 (roadmap.md) về lý do đổi từ Thông tư 133
+│   ├── number_parser.py       # ĐÃ CÓ: parser số kiểu Việt Nam (chấm nghìn, phẩy thập phân, số âm trong ngoặc)
+│   ├── cccd.py               # CHƯA CÓ — ưu tiên MRZ/QR trước OCR text tự do (Mục 8.3)
+│   ├── so_do.py               # CHƯA CÓ — theo version mẫu GCN QSDĐ (Mục 8.4)
+│   ├── hop_dong_cong_chung.py  # CHƯA CÓ — pattern-anchored quanh trường bắt buộc theo Luật Công chứng (Mục 8.5)
+│   └── to_trinh_tin_dung.py    # CHƯA CÓ — đọc template cấu hình theo tenant, không hardcode 1 mẫu (Mục 8.5)
+├── templates/            # CHƯA CÓ — định nghĩa field-position/keyword theo tenant (to_trinh_tin_dung, mẫu sổ đỏ theo thời kỳ)
+├── ocr/                  # ĐÃ CÓ: engine.py (wrapper PaddleOCR lang="vi"), preprocess.py (text layer/rasterize/deskew), table.py (wrapper PP-StructureV3)
+├── validation/           # ĐÃ CÓ (mới, chưa có ở bản gốc): engine.py (rule engine cấu hình YAML, Mục 8.6) + rules_bctc.yaml
 ├── storage/              # xử lý file tạm — TỰ ĐỘNG XOÁ sau khi trả kết quả
 ├── tests/
-│   └── fixtures/         # BCTC công khai đã tải, hồ sơ giả lập — KHÔNG BAO GIỜ dữ liệu thật
+│   └── fixtures/bctc/    # ĐÃ CÓ 2 BCTC công khai thật (HOSE/HNX) làm hạt giống golden dataset — KHÔNG BAO GIỜ dữ liệu thật của khách hàng
 └── docs/
 ```

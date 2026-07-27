@@ -22,6 +22,8 @@
 - Chạy golden dataset qua toàn bộ pipeline ở mỗi lần đổi code OCR/extract/validate, so với baseline đã lưu — chặn merge nếu chỉ số tụt quá ngưỡng cho phép
 - Benchmark PaddleOCR vs VietOCR (Mục 12 roadmap, xem [roadmap.md](roadmap.md)) dùng chung bộ chỉ số ở Mục 14.2 để quyết định bằng dữ liệu, không theo cảm tính
 
+**Đã code bước đầu (tách CI nhanh khỏi test OCR thật):** `pyproject.toml` khai báo marker `slow` (`addopts = "-m 'not slow'"`) — `pytest -q` mặc định của CI KHÔNG chạy test dùng model OCR/PP-StructureV3 thật (chậm, cần tải model). Test API/queue/webhook wiring dùng fixture `mock_pipeline` (tự động áp dụng, `tests/conftest.py`) thay `run_pipeline` bằng stub trả kết quả giả cố định. Test OCR thật (`tests/test_bctc_extraction_slow.py`, đánh dấu `slow`) gọi thẳng `extract_bctc()` trên 2 fixture BCTC thật ở `tests/fixtures/bctc/`, chạy thủ công bằng `pytest -m slow` — CHƯA nối vào 1 job CI riêng theo đúng mô tả regression gate ở trên, đó vẫn là việc còn lại của Tuần 10+ (Mục 12, xem [roadmap.md](roadmap.md)).
+
 ### 14.4 Vòng lặp học từ review thủ công
 
 - Hồ sơ bị gắn `review_required=true` sau khi người kiểm tra thủ công → hồ sơ đó (ẩn danh, đúng nguyên tắc Mục 1) trở thành ca test mới bổ sung vào golden dataset — tránh lặp lại lỗi đã từng phát hiện

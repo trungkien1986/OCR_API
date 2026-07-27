@@ -8,3 +8,4 @@ fakeredis==2.*
 # Lint & type check
 ruff==0.*
 mypy==1.*
+types-PyYAML==6.*

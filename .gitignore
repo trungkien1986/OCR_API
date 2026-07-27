@@ -4,6 +4,9 @@ __pycache__/
 venv/
 .env
 docker-compose.override.yml
+# Cache offline các gói pip (wheel Linux/Python 3.11) — tự tải lại được bằng pip download,
+# không commit vì kích thước lớn (paddlepaddle/paddleocr).
+ThuVien/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

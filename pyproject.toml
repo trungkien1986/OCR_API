@@ -25,3 +25,8 @@ testpaths = ["tests"]
 # `python -m pytest`), nên KHÔNG tự thêm thư mục gốc project vào sys.path, làm
 # `from api.config import settings` trong conftest.py lỗi ModuleNotFoundError.
 pythonpath = ["."]
+# `slow` = test dùng OCR/model thật (PaddleOCR/PP-StructureV3) — chậm, cần tải model.
+# Loại khỏi `pytest -q` mặc định của CI (design/testing.md Mục 14.3: regression gate là
+# job riêng, không chặn mỗi push); chạy thủ công bằng `pytest -m slow`.
+markers = ["slow: cần OCR/model thật, không chạy trong CI mặc định"]
+addopts = "-m 'not slow'"

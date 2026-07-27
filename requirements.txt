@@ -19,7 +19,17 @@ certifi>=2024.0
 # Mã hoá tenant_secret lúc lưu trữ (Fernet)
 cryptography==43.*
 
-# OCR/nhận diện bảng: CHƯA pin version — cần benchmark PaddleOCR PP-OCRv5 vs VietOCR
-# trên mẫu thật trước khi chốt (xem OCR_ENGINE_DESIGN.md Mục 6, Mục 13)
-# paddleocr==...
-# paddlepaddle==...
+# OCR (lang="vi") + nhận diện bảng (PP-StructureV3) — benchmark chính thức PaddleOCR vs
+# VietOCR trên golden dataset vẫn dời đúng lịch Tuần 9-10 (xem OCR_ENGINE_DESIGN.md Mục 6,
+# Mục 13); PaddleOCR là lựa chọn mặc định cho tới lúc đó.
+paddlepaddle==3.3.*
+paddleocr[doc-parser]==3.7.*
+
+# Đọc PDF: phát hiện text layer sẵn, rasterize trang thành ảnh cho OCR/nhận diện bảng
+pymupdf==1.28.*
+
+# Rule engine validate nghiệp vụ cấu hình YAML (design/pipeline.md Mục 8.6)
+pyyaml==6.*
+
+# Fuzzy-match tên chỉ tiêu OCR được với danh mục mã số chuẩn (Mục 8.2)
+rapidfuzz==3.*

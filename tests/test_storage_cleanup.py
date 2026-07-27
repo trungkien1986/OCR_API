@@ -11,7 +11,7 @@ def test_pipeline_failure_still_deletes_file_and_marks_failed(
     def _boom(job_id, doc_type, file_path):
         raise RuntimeError("lỗi giả lập từ pipeline")
 
-    monkeypatch.setattr("workers.tasks.run_placeholder_pipeline", _boom)
+    monkeypatch.setattr("workers.tasks.run_pipeline", _boom)
 
     _tenant, raw_api_key, _secret = make_tenant()
     with sample_pdf_path.open("rb") as f:

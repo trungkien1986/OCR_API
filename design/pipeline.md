@@ -23,6 +23,8 @@
 - **Tận dụng tên chỉ tiêu là danh mục đóng, hữu hạn** (Thông tư 133/200 đã có sẵn toàn bộ tên gọi chuẩn) — fuzzy-match tên chỉ tiêu OCR được với danh mục chuẩn thay vì tin nguyên văn OCR, tự sửa lỗi dấu tiếng Việt phổ biến (sắc/huyền/hỏi/ngã/nặng). Đây là tối ưu đặc thù nghiệp vụ mang lại độ chính xác cao hơn nhiều so với OCR tổng quát, vì phạm vi từ vựng đã biết trước và hữu hạn
 - **Giới hạn đã biết của v1 với bảng không chuẩn** (phụ lục/thuyết minh): chỉ hỗ trợ header 1 dòng; header nhiều dòng/merged cell phức tạp hơn sẽ rơi vào `review_required=true` thay vì cố map sai — ghi nhận rõ giới hạn thay vì âm thầm suy diễn
 
+**Trạng thái hiện tại (đã code, `extractors/bctc.py` + `ocr/`):** pipeline Bảng cân đối kế toán (Mẫu B01-DN, Thông tư 200) chạy đủ luồng preprocess (text layer/rasterize/deskew) → OCR (`lang="vi"`) → PP-StructureV3 → parse HTML bảng → fuzzy-match tên chỉ tiêu (`rapidfuzz`, ngưỡng 70) hoặc khớp trực tiếp mã số 3 chữ số → rule engine (`validation/`). CHƯA làm: KQKD/LCTT (chỉ CĐKT), ngưỡng confidence hiệu chỉnh theo Mục 14.2 (review_required v1 chỉ dựa vào "không nhận diện được bảng nào" HOẶC có rule lỗi), và chưa chạy qua Docker/máy production thật lần nào — xem `plans/phase2-bctc-ocr-pipeline.md`.
+
 **Ghi chú quan trọng về `doc_type`:** taxonomy hiện tại (`tin_dung`, `cong_chung`) đang gộp nhiều loại giấy tờ có cấu trúc hoàn toàn khác nhau vào chung 1 nhóm. Cần tách nhỏ theo loại giấy tờ cụ thể — `cccd`, `so_do`, `hop_dong_cong_chung`, `to_trinh_tin_dung` (đã phản ánh ở cấu trúc thư mục Mục 7, xem [architecture.md](architecture.md)) — vì mỗi loại cần 1 chiến lược trích xuất khác nhau, trình bày ở 8.3-8.5 dưới đây.
 
 ### 8.3 Trích xuất CCCD/CMND — tận dụng MRZ & QR thay vì chỉ OCR tự do
